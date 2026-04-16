@@ -1,0 +1,55 @@
+{
+  "id": "rescue-detail-owner",
+  "route": "pages/rescue/detail/index",
+  "query": {
+    "caseId": "sample-case",
+    "mode": "owner"
+  },
+  "fixture": "sample-case",
+  "viewport": {
+    "width": 390,
+    "height": 844,
+    "deviceScaleFactor": 2
+  },
+  "readySignal": {
+    "type": "selector",
+    "value": ".detail-page-shell",
+    "timeoutMs": 10000,
+    "stableMs": 500
+  },
+  "capture": {
+    "mode": "fullPage",
+    "devtools": true,
+    "navigationMode": "relaunch",
+    "fullPage": true,
+    "segments": [
+      "header",
+      "hero",
+      "timeline",
+      "bottom-bar"
+    ],
+    "segmentSelectors": {
+      "header": ".detail-header",
+      "hero": ".detail-hero",
+      "timeline": ".detail-timeline",
+      "bottom-bar": ".detail-bottom-bar"
+    },
+    "prepareCommand": "node scripts/project-prepare-qa.js",
+    "helperCommand": "node scripts/project-capture.js",
+    "manualFiles": [],
+    "manualDirectory": ""
+  },
+  "design": {
+    "figmaFileKey": "",
+    "figmaNodeId": "",
+    "designImagePath": "",
+    "baselineImagePath": ""
+  },
+  "ignoreRegions": [
+    ".timestamp",
+    ".avatar-image"
+  ],
+  "notes": [
+    "Replace helperCommand with a project-local native screenshot adapter."
+  ]
+}

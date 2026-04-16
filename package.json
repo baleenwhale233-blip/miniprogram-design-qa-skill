@@ -1,0 +1,29 @@
+{
+  "name": "miniprogram-design-qa",
+  "version": "0.1.0",
+  "private": true,
+  "description": "GitHub-publishable Codex skill for native WeChat mini-program design QA with a built-in repair loop.",
+  "type": "module",
+  "scripts": {
+    "qa:detect": "node scripts/detect-project.mjs",
+    "qa:launch": "node scripts/launch-devtools.mjs",
+    "qa:capture:devtools": "node scripts/capture-devtools.mjs",
+    "qa:capture": "node scripts/capture-miniprogram.mjs",
+    "qa:pipeline": "node scripts/run-qa-pipeline.mjs",
+    "qa:normalize": "node scripts/normalize-images.mjs",
+    "qa:compare": "node scripts/compare-images.mjs",
+    "qa:classify": "node scripts/classify-findings.mjs",
+    "qa:report:initial": "node scripts/build-report.mjs --mode initial",
+    "qa:report:final": "node scripts/build-report.mjs --mode final",
+    "smoke": "node scripts/detect-project.mjs --help && node scripts/launch-devtools.mjs --help && node scripts/capture-devtools.mjs --help && node scripts/capture-miniprogram.mjs --help && node scripts/run-qa-pipeline.mjs --help && node scripts/normalize-images.mjs --help && node scripts/compare-images.mjs --help && node scripts/classify-findings.mjs --help && node scripts/build-report.mjs --help"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "miniprogram-automator": "^0.12.1",
+    "pixelmatch": "^6.0.0",
+    "pngjs": "^7.0.0",
+    "sharp": "^0.33.5"
+  }
+}

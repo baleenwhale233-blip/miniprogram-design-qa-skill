@@ -1,0 +1,180 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.com/miniprogram-design-qa/qa-scenario.schema.json",
+  "title": "Miniprogram Design QA Scenario",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "id",
+    "route",
+    "viewport",
+    "readySignal",
+    "capture",
+    "design",
+    "ignoreRegions",
+    "notes"
+  ],
+  "properties": {
+    "id": {
+      "type": "string",
+      "minLength": 1
+    },
+    "route": {
+      "type": "string",
+      "minLength": 1
+    },
+    "query": {
+      "type": "object",
+      "default": {},
+      "additionalProperties": {
+        "type": [
+          "string",
+          "number",
+          "boolean"
+        ]
+      }
+    },
+    "fixture": {
+      "type": "string"
+    },
+    "viewport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height",
+        "deviceScaleFactor"
+      ],
+      "properties": {
+        "width": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "height": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "deviceScaleFactor": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        }
+      }
+    },
+    "readySignal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "value"
+      ],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": [
+            "selector",
+            "text",
+            "network-idle"
+          ]
+        },
+        "value": {
+          "type": "string"
+        },
+        "timeoutMs": {
+          "type": "number",
+          "exclusiveMinimum": 0
+        },
+        "stableMs": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "capture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode",
+        "segments"
+      ],
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "viewport",
+            "fullPage"
+          ]
+        },
+        "devtools": {
+          "type": "boolean"
+        },
+        "navigationMode": {
+          "type": "string",
+          "enum": [
+            "relaunch",
+            "navigate"
+          ]
+        },
+        "fullPage": {
+          "type": "boolean"
+        },
+        "segments": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "segmentSelectors": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "prepareCommand": {
+          "type": "string"
+        },
+        "helperCommand": {
+          "type": "string"
+        },
+        "manualFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "manualDirectory": {
+          "type": "string"
+        }
+      }
+    },
+    "design": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "figmaFileKey": {
+          "type": "string"
+        },
+        "figmaNodeId": {
+          "type": "string"
+        },
+        "designImagePath": {
+          "type": "string"
+        },
+        "baselineImagePath": {
+          "type": "string"
+        }
+      }
+    },
+    "ignoreRegions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+interface:
+  display_name: "Miniprogram Design QA"
+  short_description: "Run native WeChat mini-program design QA"
+  brand_color: "#07C160"
+  default_prompt: "Use $miniprogram-design-qa to run native WeChat mini-program acceptance, compare against design references, and produce initial and final QA reports."
+
+policy:
+  allow_implicit_invocation: true
