@@ -8,7 +8,7 @@ Machine-readable validation is available in [templates/qa-scenario.schema.json](
 
 - `id`: Stable scenario identifier
 - `route`: WeChat mini-program route, for example `pages/rescue/detail/index`
-- `query`: Route params object
+- `query`: Route params object. Prefer using this to enter target tabs, filters, or page sub-states when the page supports route-driven state.
 - `fixture`: Logical fixture or state name used by the consumer project
 - `viewport`: Runtime viewport configuration
 - `readySignal`: Explicit signal that the page is stable enough to capture
@@ -25,7 +25,8 @@ Machine-readable validation is available in [templates/qa-scenario.schema.json](
   "route": "pages/rescue/detail/index",
   "query": {
     "caseId": "sample-case",
-    "mode": "owner"
+    "mode": "owner",
+    "tab": "detail"
   },
   "fixture": "sample-case",
   "viewport": {
@@ -125,3 +126,10 @@ At least one of the following should be present when a design comparison is requ
 - Add clear ready markers to the app
 - Break long pages into segments
 - Mask timestamps, avatars, random imagery, and upload placeholders
+- For tabbed pages, prefer route/query-driven tab entry over capture-time taps
+- Reserve tap-based tab switching for flows that explicitly need interaction validation
+
+Recommended default:
+
+- visual/state QA should enter tab or sub-state via route/query
+- interaction QA may add capture-time tap steps only when the interaction itself is in scope

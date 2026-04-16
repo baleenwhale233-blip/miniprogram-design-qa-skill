@@ -102,11 +102,24 @@ The consumer project should provide:
 - optional masking rules for dynamic regions
 - optional project-local prepare/capture hooks or adapters
 
+For tabbed screens, prefer entering the target tab through route/query state instead of relying on capture-time taps.
+
 The default capture path is:
 
 1. built-in native DevTools capture via `capture-devtools.mjs`
 2. optional project-local adapter or hook
 3. manual runtime screenshots
+
+Recommended rule for tab scenarios:
+
+1. Prefer route/query or another explicit initial-state mechanism to enter the target tab.
+2. Use capture-time tap only when the task is explicitly validating the tab-switch interaction itself.
+3. Treat route-driven tab entry as the default for visual/state acceptance because it is more stable and easier to reproduce.
+
+Recommended interpretation:
+
+- state acceptance: use route/query to enter the correct tab or sub-state
+- interaction acceptance: use capture-time taps only when the task is specifically about validating the tab-switch interaction
 
 The recommended scenario contract is documented in:
 

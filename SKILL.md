@@ -55,6 +55,9 @@ Do not use this as the primary skill for browser-only pages. Use a browser-focus
 - Never auto-fix ambiguous design intent, business rules, or backend/data correctness issues.
 - Prefer explicit ready signals over blind sleeps.
 - Prefer segmented screenshots for long pages.
+- For tabbed pages, prefer route/query-driven initial state instead of capture-time taps.
+- Only use capture-time tab switching when the task explicitly needs interaction validation.
+- Treat route/query-driven tab entry as the default for visual and state acceptance, not as a page-specific exception.
 
 ## Scenario Contract
 
