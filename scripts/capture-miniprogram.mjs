@@ -82,6 +82,7 @@ if (useDevtools) {
       cliPath: resolvePath(process.cwd(), args["cli-path"]),
       port: args.port ?? "9421",
       trustProject: parseBoolean(args["trust-project"], false),
+      preferConnect: args.port !== undefined,
     });
     logJson(result);
     process.exit(0);

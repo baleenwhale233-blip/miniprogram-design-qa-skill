@@ -227,6 +227,7 @@ async function runPipeline({
   baselineImage,
   repairedIssuesPath,
   port,
+  preferConnect,
   trustProject,
 }) {
   const scenario = readJson(scenarioPath);
@@ -239,6 +240,7 @@ async function runPipeline({
     scenarioPath,
     outputDir: path.join(phaseDir, "capture"),
     port,
+    preferConnect,
     trustProject,
   });
   const designSource = resolveDesignSource(projectRoot, scenario, {
@@ -359,6 +361,7 @@ try {
     baselineImage: resolvePath(process.cwd(), args["baseline-image"]),
     repairedIssuesPath: resolvePath(process.cwd(), args["repaired-issues"]),
     port: args.port ?? "9421",
+    preferConnect: args.port !== undefined,
     trustProject: hasFlag(argv, "trust-project"),
   });
 

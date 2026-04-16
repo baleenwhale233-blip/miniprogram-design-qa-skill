@@ -38,6 +38,10 @@ Notes:
 
 const DEFAULT_LAUNCH_RETRIES = 3;
 const DEFAULT_LAUNCH_RETRY_DELAY_MS = 2000;
+const DEFAULT_LAUNCH_TIMEOUT_MS = 12000;
+const DEFAULT_CONNECT_RETRIES = 5;
+const DEFAULT_CONNECT_RETRY_DELAY_MS = 1000;
+const DEFAULT_CONNECT_TIMEOUT_MS = 5000;
 
 function createFailure(phase, message, details = {}) {
   return {
@@ -93,6 +97,65 @@ async function loadAutomator() {
   }
 }
 
+async function connectMiniProgramWithRetries({
+  automator,
+  port,
+  scenarioId,
+  projectRoot,
+}) {
+  const connectPort = Number(port);
+  const wsEndpoint = `ws://127.0.0.1:${connectPort}`;
+  const attempts = [];
+
+  for (let attempt = 1; attempt <= DEFAULT_CONNECT_RETRIES; attempt += 1) {
+    try {
+      const miniProgram = await Promise.race([
+        automator.connect({
+          wsEndpoint,
+        }),
+        sleep(DEFAULT_CONNECT_TIMEOUT_MS).then(() => {
+          throw Error(`Connect attempt timed out after ${DEFAULT_CONNECT_TIMEOUT_MS} ms`);
+        }),
+      ]);
+
+      return {
+        miniProgram,
+        connectionInfo: {
+          connectionMode: "attach-existing",
+          successfulAttempt: attempt,
+          attemptCount: attempt,
+          usedPort: connectPort,
+          wsEndpoint,
+          attempts,
+        },
+      };
+    } catch (error) {
+      attempts.push({
+        attempt,
+        port: connectPort,
+        wsEndpoint,
+        cause: getErrorCause(error),
+      });
+
+      if (attempt < DEFAULT_CONNECT_RETRIES) {
+        await sleep(DEFAULT_CONNECT_RETRY_DELAY_MS);
+      }
+    }
+  }
+
+  return {
+    miniProgram: null,
+    connectionInfo: {
+      connectionMode: "attach-existing",
+      successfulAttempt: 0,
+      attemptCount: DEFAULT_CONNECT_RETRIES,
+      usedPort: connectPort,
+      wsEndpoint,
+      attempts,
+    },
+  };
+}
+
 async function launchMiniProgramWithRetries({
   automator,
   projectRoot,
@@ -108,16 +171,22 @@ async function launchMiniProgramWithRetries({
     const attemptPort = basePort + (attempt - 1);
 
     try {
-      const miniProgram = await automator.launch({
-        projectPath: projectRoot,
-        cliPath,
-        port: attemptPort,
-        trustProject,
-      });
+      const miniProgram = await Promise.race([
+        automator.launch({
+          projectPath: projectRoot,
+          cliPath,
+          port: attemptPort,
+          trustProject,
+        }),
+        sleep(DEFAULT_LAUNCH_TIMEOUT_MS).then(() => {
+          throw new Error(`Launch attempt timed out after ${DEFAULT_LAUNCH_TIMEOUT_MS} ms`);
+        }),
+      ]);
 
       return {
         miniProgram,
         launchInfo: {
+          connectionMode: "launch",
           successfulAttempt: attempt,
           attemptCount: attempt,
           requestedPort: basePort,
@@ -436,6 +505,7 @@ export async function captureWithDevtools({
   cliPath,
   port = "9421",
   trustProject = false,
+  preferConnect = false,
 }) {
   const scenario = readJson(scenarioPath);
   const scenarioId = scenario.id ?? path.basename(scenarioPath, path.extname(scenarioPath));
@@ -478,14 +548,41 @@ export async function captureWithDevtools({
   }
 
   const automator = await loadAutomator();
-  const { miniProgram, launchInfo } = await launchMiniProgramWithRetries({
-    automator,
-    projectRoot,
-    cliPath: effectiveCliPath,
-    port,
-    trustProject,
-    scenarioId,
-  });
+  let miniProgram;
+  let connectionInfo = null;
+
+  if (preferConnect) {
+    const existingConnection = await connectMiniProgramWithRetries({
+      automator,
+      port,
+      scenarioId,
+      projectRoot,
+    });
+
+    if (existingConnection.miniProgram) {
+      miniProgram = existingConnection.miniProgram;
+      connectionInfo = existingConnection.connectionInfo;
+    } else {
+      warnings.push(
+        `Failed to attach existing DevTools automation session on port ${port}; falling back to launch mode.`,
+      );
+      connectionInfo = existingConnection.connectionInfo;
+    }
+  }
+
+  let launchInfo = null;
+  if (!miniProgram) {
+    const launched = await launchMiniProgramWithRetries({
+      automator,
+      projectRoot,
+      cliPath: effectiveCliPath,
+      port,
+      trustProject,
+      scenarioId,
+    });
+    miniProgram = launched.miniProgram;
+    launchInfo = launched.launchInfo;
+  }
 
   try {
     const url = buildMiniProgramUrl(scenario.route, scenario.query);
@@ -557,11 +654,15 @@ export async function captureWithDevtools({
         type: "devtools-automator",
         cliPath: effectiveCliPath,
         requestedPort: Number(port),
-        usedPort: launchInfo.usedPort,
-        successfulAttempt: launchInfo.successfulAttempt,
-        attemptCount: launchInfo.attemptCount,
+        usedPort: launchInfo?.usedPort ?? connectionInfo?.usedPort ?? Number(port),
+        connectionMode: launchInfo?.connectionMode ?? connectionInfo?.connectionMode ?? "launch",
+        successfulAttempt:
+          launchInfo?.successfulAttempt ?? connectionInfo?.successfulAttempt ?? 0,
+        attemptCount:
+          launchInfo?.attemptCount ?? connectionInfo?.attemptCount ?? 0,
       },
-      launchAttempts: launchInfo.attempts,
+      attachAttempts: connectionInfo?.attempts ?? [],
+      launchAttempts: launchInfo?.attempts ?? [],
       evidenceSource: "devtools-automator",
       screenshots: [baseCapture.imagePath, ...segmentShots.map((item) => item.path)],
       baseScreenshot: baseCapture.imagePath,
@@ -619,6 +720,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     cliPath: resolvePath(process.cwd(), args["cli-path"]),
     port: args.port ?? "9421",
     trustProject: parseBoolean(args["trust-project"], false),
+    preferConnect: args.port !== undefined,
   })
     .then((result) => {
       logJson(result);
