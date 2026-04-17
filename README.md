@@ -2,6 +2,16 @@
 
 Native-first visual and interaction acceptance tooling for **WeChat mini-programs**.
 
+Languages:
+
+- English: [README.md](./README.md)
+- 简体中文: [README.zh-CN.md](./README.zh-CN.md)
+
+Release notes:
+
+- English: [RELEASE_NOTES.md](./RELEASE_NOTES.md)
+- 简体中文: [RELEASE_NOTES.zh-CN.md](./RELEASE_NOTES.zh-CN.md)
+
 This repository is intended to be shared as source on GitHub. It is not currently positioned as an npm package.
 
 This repository is designed to be usable in two ways:
