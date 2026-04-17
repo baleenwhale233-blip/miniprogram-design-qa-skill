@@ -39,6 +39,22 @@
     "manualFiles": [],
     "manualDirectory": ""
   },
+  "compare": {
+    "threshold": 0.1,
+    "includeAA": false,
+    "minHotspotArea": 400,
+    "minHotspotPixels": 100,
+    "maxHotspots": 12,
+    "hotspotMergeDistance": 8,
+    "exportHotspotCrops": true,
+    "segmentThreshold": 0.03,
+    "perSegmentThresholds": {
+      "header": 0.02
+    },
+    "segmentDesignImages": {
+      "header": "design/header.png"
+    }
+  },
   "design": {
     "figmaFileKey": "",
     "figmaNodeId": "",

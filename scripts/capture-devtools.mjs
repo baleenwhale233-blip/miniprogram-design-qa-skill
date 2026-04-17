@@ -538,6 +538,13 @@ async function cropSegments({
         segment,
         selector,
         path: segmentPath,
+        bbox: {
+          left: extractLeft,
+          top: extractTop,
+          width: extractWidth,
+          height: extractHeight,
+        },
+        bboxSource: defaults.useFullPage ? "baseScreenshot" : "segmentSource",
       });
     }
 

@@ -5,4 +5,4 @@ interface:
   default_prompt: "Use $miniprogram-design-qa to run native WeChat mini-program acceptance, compare against design references, and produce initial and final QA reports."
 
 policy:
-  allow_implicit_invocation: true
+  allow_implicit_invocation: false

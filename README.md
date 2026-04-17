@@ -43,6 +43,8 @@ These parts are Codex-oriented metadata:
 
 If another agent can read files, run shell commands, and edit project code, it can still use the general layer without understanding Codex skills.
 
+Implicit skill invocation is intentionally disabled in the Codex metadata because this repo is specialized and should not be the default choice for browser-only QA, native mobile QA, or direct design-export tasks.
+
 ## Quick Start
 
 1. Install dependencies:
@@ -102,6 +104,18 @@ After fixes are applied, rerun in final mode:
 npm run qa:pipeline -- --mode final --project-root /path/to/consumer-project --scenario /path/to/consumer-project/qa/rescue-detail-owner.json --repaired-issues repaired-issues.json
 ```
 
+8. Validate a scenario contract directly:
+
+```bash
+npm run qa:validate-scenario -- --scenario /path/to/consumer-project/qa/example.json
+```
+
+9. Run repo/consumer diagnostics:
+
+```bash
+npm run qa:doctor -- --project-root /path/to/consumer-project --scenario /path/to/consumer-project/qa/example.json
+```
+
 ## Consumer Project Contract
 
 The consumer project should provide:
@@ -109,7 +123,7 @@ The consumer project should provide:
 - one or more scenario JSON files
 - stable routes and fixture/state setup
 - explicit ready markers
-- optional reserved masking metadata for dynamic regions
+- optional masking selectors for dynamic regions
 - optional project-local prepare/capture hooks or adapters
 
 For tabbed screens, prefer entering the target tab through route/query state instead of relying on capture-time taps.
@@ -136,8 +150,18 @@ The recommended scenario contract is documented in:
 - [references/scenario-schema.md](./references/scenario-schema.md)
 - [templates/qa-scenario.schema.json](./templates/qa-scenario.schema.json)
 - [references/output-artifacts.md](./references/output-artifacts.md)
+- [evals/README.md](./evals/README.md)
 
 Machine-readable outputs are intended for external agents and scripts to consume directly. Use the output-artifacts reference instead of inferring JSON shapes from source code.
+
+Optional compare configuration can be supplied through top-level `scenario.compare`, including:
+
+- global compare thresholding
+- hotspot detection thresholds
+- segment thresholds
+- segment design image mapping
+
+See [references/scenario-schema.md](./references/scenario-schema.md) for the contract.
 
 ## Evidence Policy
 
@@ -149,6 +173,8 @@ This repo is **native-runtime first**.
 - Supplemental only: H5 or browser mirrors
 
 Do not treat H5 as the primary visual truth for a native mini-program page.
+
+Without `designImagePath` or `baselineImagePath`, the built-in pipeline can still perform runtime acceptance, but it must not claim a strong design verdict.
 
 ## Defaults and Configuration
 
@@ -220,10 +246,13 @@ Out of scope in v1:
 - `npm run qa:launch -- --project-root <path>`
 - `npm run qa:capture:devtools -- --project-root <path> --scenario <file>`
 - `npm run qa:capture -- --project-root <path> --scenario <file>`
+- `npm run qa:validate-scenario -- --scenario <file>`
+- `npm run qa:doctor -- --project-root <path> --scenario <file>`
 - `npm run qa:normalize -- --actual <file> --design <file> --output-dir <dir>`
 - `npm run qa:compare -- --actual <file> --design <file> --output <file>`
 - `npm run qa:classify -- --findings <file>`
 - `npm run qa:report:initial -- --input <file>`
 - `npm run qa:report:final -- --input <file>`
 - `npm run qa:pipeline -- --mode initial|final --project-root <path> --scenario <file>`
+- `npm run qa:smoke-compare`
 - `npm run smoke`

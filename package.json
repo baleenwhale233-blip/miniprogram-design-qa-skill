@@ -9,13 +9,16 @@
     "qa:launch": "node scripts/launch-devtools.mjs",
     "qa:capture:devtools": "node scripts/capture-devtools.mjs",
     "qa:capture": "node scripts/capture-miniprogram.mjs",
+    "qa:validate-scenario": "node scripts/validate-scenario.mjs",
+    "qa:doctor": "node scripts/doctor.mjs",
     "qa:pipeline": "node scripts/run-qa-pipeline.mjs",
     "qa:normalize": "node scripts/normalize-images.mjs",
     "qa:compare": "node scripts/compare-images.mjs",
     "qa:classify": "node scripts/classify-findings.mjs",
     "qa:report:initial": "node scripts/build-report.mjs --mode initial",
     "qa:report:final": "node scripts/build-report.mjs --mode final",
-    "smoke": "node scripts/detect-project.mjs --help && node scripts/launch-devtools.mjs --help && node scripts/capture-devtools.mjs --help && node scripts/capture-miniprogram.mjs --help && node scripts/run-qa-pipeline.mjs --help && node scripts/normalize-images.mjs --help && node scripts/compare-images.mjs --help && node scripts/classify-findings.mjs --help && node scripts/build-report.mjs --help"
+    "qa:smoke-compare": "node scripts/smoke-compare.mjs",
+    "smoke": "node scripts/detect-project.mjs --help && node scripts/launch-devtools.mjs --help && node scripts/capture-devtools.mjs --help && node scripts/capture-miniprogram.mjs --help && node scripts/validate-scenario.mjs --help && node scripts/doctor.mjs --help && node scripts/run-qa-pipeline.mjs --help && node scripts/normalize-images.mjs --help && node scripts/compare-images.mjs --help && node scripts/classify-findings.mjs --help && node scripts/build-report.mjs --help && node scripts/smoke-compare.mjs"
   },
   "engines": {
     "node": ">=18"

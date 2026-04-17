@@ -1,9 +1,37 @@
 ---
 name: miniprogram-design-qa
-description: Run native visual and interaction acceptance for WeChat mini-program pages by collecting runtime screenshots, comparing them with design references, and producing structured acceptance reports within a repair-loop workflow. Trigger when the user asks for mini-program acceptance, visual QA, screenshot diff, design comparison, WeChat mini-program review, or 原生小程序验收.
+description: Use this skill when the task is native WeChat mini-program acceptance with runtime screenshots, local design/baseline compare, or scenario-driven QA. Do not use it as the primary skill for browser-only pages, native mobile apps, or direct Figma export workflows.
 ---
 
 # Miniprogram Design QA
+
+## Inputs
+
+- a consumer project root
+- a scenario JSON file
+- optional local design image or baseline image
+- optional external repaired-issues input for a final pass
+
+## Outputs
+
+- native runtime screenshots
+- compare artifacts
+- machine-readable findings and classification JSON
+- initial/final QA reports
+
+## Definition of Done
+
+- the target scenario has been executed or has failed with a structured phase error
+- any available local design/baseline compare has been recorded truthfully
+- the repo has produced machine-readable artifacts and a human-readable report
+- no claim is made that source code was repaired unless an external repair step actually happened
+
+## Non-goals
+
+- browser-only page QA as the primary use case
+- built-in Figma screenshot export
+- in-repo source-code repair
+- semantic UI understanding beyond the implemented pixel/geometry heuristics
 
 Use this skill for **native WeChat mini-program acceptance**.
 
@@ -28,6 +56,7 @@ Use this skill when the user asks for any of the following:
 - 前端验收 with a mini-program runtime
 
 Do not use this as the primary skill for browser-only pages. Use a browser-focused QA skill instead.
+Do not use this as the primary skill for native mobile apps or general-purpose design-export tasks.
 
 ## Workflow
 

@@ -2,6 +2,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   buildScenarioOutputDir,
   ensureDir,
@@ -33,6 +34,19 @@ Notes:
   - final mode re-captures the page, reruns comparison, and produces 复验报告.
   - source-code repair is handled by an external agent or engineer between the two phases.
 `;
+
+const DEFAULT_COMPARE_CONFIG = {
+  threshold: 0.1,
+  includeAA: false,
+  minHotspotArea: 400,
+  minHotspotPixels: 100,
+  maxHotspots: 12,
+  hotspotMergeDistance: 8,
+  exportHotspotCrops: true,
+  segmentThreshold: 0.03,
+  perSegmentThresholds: {},
+  segmentDesignImages: {},
+};
 
 function isStructuredFailure(error) {
   return Boolean(error && typeof error === "object" && "phase" in error && "error" in error);
@@ -66,6 +80,48 @@ function resolveDesignSource(projectRoot, scenario, overrides = {}) {
   return null;
 }
 
+function getCompareConfig(scenario) {
+  const compare = scenario.compare ?? {};
+  return {
+    threshold:
+      typeof compare.threshold === "number"
+        ? compare.threshold
+        : DEFAULT_COMPARE_CONFIG.threshold,
+    includeAA:
+      typeof compare.includeAA === "boolean"
+        ? compare.includeAA
+        : DEFAULT_COMPARE_CONFIG.includeAA,
+    minHotspotArea:
+      typeof compare.minHotspotArea === "number"
+        ? compare.minHotspotArea
+        : DEFAULT_COMPARE_CONFIG.minHotspotArea,
+    minHotspotPixels:
+      typeof compare.minHotspotPixels === "number"
+        ? compare.minHotspotPixels
+        : DEFAULT_COMPARE_CONFIG.minHotspotPixels,
+    maxHotspots:
+      typeof compare.maxHotspots === "number"
+        ? compare.maxHotspots
+        : DEFAULT_COMPARE_CONFIG.maxHotspots,
+    hotspotMergeDistance:
+      typeof compare.hotspotMergeDistance === "number"
+        ? compare.hotspotMergeDistance
+        : DEFAULT_COMPARE_CONFIG.hotspotMergeDistance,
+    exportHotspotCrops:
+      typeof compare.exportHotspotCrops === "boolean"
+        ? compare.exportHotspotCrops
+        : DEFAULT_COMPARE_CONFIG.exportHotspotCrops,
+    segmentThreshold:
+      typeof compare.segmentThreshold === "number"
+        ? compare.segmentThreshold
+        : DEFAULT_COMPARE_CONFIG.segmentThreshold,
+    perSegmentThresholds:
+      compare.perSegmentThresholds ?? DEFAULT_COMPARE_CONFIG.perSegmentThresholds,
+    segmentDesignImages:
+      compare.segmentDesignImages ?? DEFAULT_COMPARE_CONFIG.segmentDesignImages,
+  };
+}
+
 function mapIgnoreRegionsToNormalized(captureMetadata, normalized) {
   const ignoreRegions = captureMetadata.ignoreRegions ?? [];
   if (!ignoreRegions.length) {
@@ -86,6 +142,47 @@ function mapIgnoreRegionsToNormalized(captureMetadata, normalized) {
     width: Math.max(Math.round((region.width ?? 0) * transform.scaleX), 1),
     height: Math.max(Math.round((region.height ?? 0) * transform.scaleY), 1),
   }));
+}
+
+function mapSegmentBboxToNormalized(segmentShot, normalized) {
+  if (!segmentShot?.bbox || segmentShot.bboxSource !== "baseScreenshot") {
+    return null;
+  }
+
+  const transform = normalized.actualTransform ?? {
+    scaleX: 1,
+    scaleY: 1,
+    left: 0,
+    top: 0,
+  };
+
+  return {
+    left: Math.max(Math.round(segmentShot.bbox.left * transform.scaleX + transform.left), 0),
+    top: Math.max(Math.round(segmentShot.bbox.top * transform.scaleY + transform.top), 0),
+    width: Math.max(Math.round(segmentShot.bbox.width * transform.scaleX), 1),
+    height: Math.max(Math.round(segmentShot.bbox.height * transform.scaleY), 1),
+  };
+}
+
+async function cropNormalizedSegmentImages({
+  normalized,
+  bbox,
+  outputDir,
+  segment,
+}) {
+  const { default: sharp } = await import("sharp");
+  ensureDir(outputDir);
+
+  const actualPath = path.join(outputDir, `${sanitizeName(segment)}.actual.png`);
+  const designPath = path.join(outputDir, `${sanitizeName(segment)}.design.png`);
+
+  await sharp(normalized.actualOutput).extract(bbox).png().toFile(actualPath);
+  await sharp(normalized.designOutput).extract(bbox).png().toFile(designPath);
+
+  return {
+    actualPath,
+    designPath,
+  };
 }
 
 function buildSubject(scenario) {
@@ -125,7 +222,12 @@ function buildRuntimeResults(scenario, captureMetadata, compareSummary) {
   };
 }
 
-function createFindings({ compareSummary, captureMetadata, designSource }) {
+export function createFindings({
+  compareSummary,
+  captureMetadata,
+  designSource,
+  compareWarnings = [],
+}) {
   const findings = [];
 
   if (!designSource) {
@@ -141,13 +243,18 @@ function createFindings({ compareSummary, captureMetadata, designSource }) {
     return findings;
   }
 
-  const ratio = compareSummary?.mismatchRatio ?? 0;
+  const ratio = compareSummary?.global?.mismatchRatio ?? compareSummary?.mismatchRatio ?? 0;
   if (ratio >= 0.12) {
     findings.push({
       id: "compare-layout-mismatch",
       title: `整体视觉差异较大（${(ratio * 100).toFixed(2)}%），优先检查布局与模块顺序。`,
       category: "layout",
       confidence: 0.93,
+      source: "global",
+      metrics: {
+        mismatchRatio: ratio,
+      },
+      evidencePaths: compareSummary?.global?.diffImage ? [compareSummary.global.diffImage] : [],
     });
   } else if (ratio >= 0.05) {
     findings.push({
@@ -155,6 +262,11 @@ function createFindings({ compareSummary, captureMetadata, designSource }) {
       title: `视觉差异明显（${(ratio * 100).toFixed(2)}%），优先检查间距与对齐。`,
       category: "spacing",
       confidence: 0.88,
+      source: "global",
+      metrics: {
+        mismatchRatio: ratio,
+      },
+      evidencePaths: compareSummary?.global?.diffImage ? [compareSummary.global.diffImage] : [],
     });
   } else if (ratio >= 0.02) {
     findings.push({
@@ -163,6 +275,57 @@ function createFindings({ compareSummary, captureMetadata, designSource }) {
       category: "visual-hierarchy",
       confidence: 0.8,
       requiresHumanApproval: true,
+      source: "global",
+      metrics: {
+        mismatchRatio: ratio,
+      },
+      evidencePaths: compareSummary?.global?.diffImage ? [compareSummary.global.diffImage] : [],
+    });
+  }
+
+  for (const segment of compareSummary?.segments ?? []) {
+    if ((segment.mismatchRatio ?? 0) < (segment.threshold ?? 0.03)) {
+      continue;
+    }
+
+    findings.push({
+      id: `segment-${segment.segment}-mismatch`,
+      title: `分段 ${segment.segment} 视觉差异为 ${(segment.mismatchRatio * 100).toFixed(2)}%，超过阈值 ${(segment.threshold * 100).toFixed(2)}%。`,
+      category: "spacing",
+      confidence: 0.9,
+      source: "segment",
+      segment: segment.segment,
+      diffImage: segment.diffImage,
+      evidencePaths: [segment.diffImage],
+      metrics: {
+        mismatchRatio: segment.mismatchRatio,
+        threshold: segment.threshold,
+      },
+    });
+  }
+
+  for (const hotspot of compareSummary?.hotspots ?? []) {
+    findings.push({
+      id: `hotspot-${hotspot.id}`,
+      title: `检测到局部差异热点 ${hotspot.id}，像素差异 ${hotspot.mismatchedPixels}，区域占比 ${(hotspot.bboxMismatchRatio * 100).toFixed(2)}%。`,
+      category: "visual-hierarchy",
+      confidence: 0.82,
+      requiresHumanApproval: true,
+      source: "hotspot",
+      hotspotId: hotspot.id,
+      bbox: {
+        left: hotspot.left,
+        top: hotspot.top,
+        width: hotspot.width,
+        height: hotspot.height,
+      },
+      evidencePaths: [hotspot.actualCrop, hotspot.designCrop, hotspot.diffCrop].filter(Boolean),
+      metrics: {
+        mismatchedPixels: hotspot.mismatchedPixels,
+        bboxMismatchRatio: hotspot.bboxMismatchRatio,
+        coverageRatio: hotspot.coverageRatio,
+        severityScore: hotspot.severityScore,
+      },
     });
   }
 
@@ -173,6 +336,20 @@ function createFindings({ compareSummary, captureMetadata, designSource }) {
       category: "layout",
       confidence: 0.76,
       requiresHumanApproval: true,
+      source: "capture",
+      evidencePaths: [],
+    });
+  }
+
+  for (const warning of compareWarnings) {
+    findings.push({
+      id: `segment-warning-${findings.length + 1}`,
+      title: warning,
+      category: "layout",
+      confidence: 0.72,
+      requiresHumanApproval: true,
+      source: "segment",
+      evidencePaths: [],
     });
   }
 
@@ -186,6 +363,7 @@ async function maybeCompareDesign({
   designSource,
   scenario,
 }) {
+  const compareConfig = getCompareConfig(scenario);
   if (!designSource) {
     return {
       designSource: null,
@@ -210,13 +388,121 @@ async function maybeCompareDesign({
     actualPath: normalized.actualOutput,
     designPath: normalized.designOutput,
     diffPath: path.join(compareDir, "diff.png"),
+    threshold: compareConfig.threshold,
+    includeAA: compareConfig.includeAA,
+    minHotspotArea: compareConfig.minHotspotArea,
+    minHotspotPixels: compareConfig.minHotspotPixels,
+    maxHotspots: compareConfig.maxHotspots,
+    hotspotMergeDistance: compareConfig.hotspotMergeDistance,
+    exportHotspotCrops: compareConfig.exportHotspotCrops,
+    hotspotOutputDir: path.join(compareDir, "hotspots"),
     ignoreRects: mapIgnoreRegionsToNormalized(captureMetadata, normalized),
   });
+
+  const segmentComparisons = [];
+  const segmentWarnings = [];
+  const segmentOutputDir = path.join(compareDir, "segments");
+  ensureDir(segmentOutputDir);
+
+  for (const segment of captureMetadata.segments ?? []) {
+    const segmentMeta = (captureMetadata.segmentScreenshots ?? []).find((item) => item.segment === segment);
+    const segmentThreshold =
+      compareConfig.perSegmentThresholds?.[segment] ?? compareConfig.segmentThreshold;
+    const configuredSegmentDesign = compareConfig.segmentDesignImages?.[segment];
+
+    if (!segmentMeta?.path) {
+      segmentWarnings.push(`Segment "${segment}" was requested but no segment screenshot was produced.`);
+      continue;
+    }
+
+    let segmentActualPath = segmentMeta.path;
+    let segmentDesignPath;
+    let source = "external-design";
+
+    if (configuredSegmentDesign) {
+      segmentDesignPath = resolvePath(projectRoot, configuredSegmentDesign);
+      if (!segmentDesignPath || !fs.existsSync(segmentDesignPath)) {
+        segmentWarnings.push(`Segment "${segment}" design reference was configured but not found: ${configuredSegmentDesign}`);
+        continue;
+      }
+    } else {
+      const mappedBbox = mapSegmentBboxToNormalized(segmentMeta, normalized);
+      if (!mappedBbox) {
+        segmentWarnings.push(`Segment "${segment}" has no segmentDesignImages entry and no reusable geometry for global-image cropping.`);
+        continue;
+      }
+
+      const cropped = await cropNormalizedSegmentImages({
+        normalized,
+        bbox: mappedBbox,
+        outputDir: segmentOutputDir,
+        segment,
+      });
+      segmentActualPath = cropped.actualPath;
+      segmentDesignPath = cropped.designPath;
+      source = "global-crop";
+    }
+
+    const segmentDir = path.join(segmentOutputDir, sanitizeName(segment));
+    ensureDir(segmentDir);
+    const segmentComparison = await compareImages({
+      actualPath: segmentActualPath,
+      designPath: segmentDesignPath,
+      diffPath: path.join(segmentDir, "diff.png"),
+      threshold: compareConfig.threshold,
+      includeAA: compareConfig.includeAA,
+      minHotspotArea: compareConfig.minHotspotArea,
+      minHotspotPixels: compareConfig.minHotspotPixels,
+      maxHotspots: compareConfig.maxHotspots,
+      hotspotMergeDistance: compareConfig.hotspotMergeDistance,
+      exportHotspotCrops: compareConfig.exportHotspotCrops,
+      hotspotOutputDir: path.join(segmentDir, "hotspots"),
+    });
+
+    segmentComparisons.push({
+      target: "segment",
+      segment,
+      threshold: segmentThreshold,
+      source,
+      actualPath: segmentActualPath,
+      designPath: segmentDesignPath,
+      diffImage: segmentComparison.diffImage,
+      comparison: segmentComparison,
+    });
+  }
 
   const warnings = [];
   if ((scenario.ignoreRegions ?? []).length > 0 && !(captureMetadata.ignoreRegions ?? []).length) {
     warnings.push("ignoreRegions was provided, but no mask geometry could be resolved for the built-in compare step.");
   }
+  warnings.push(...segmentWarnings);
+
+  const summary = {
+    mismatchRatio: comparison.mismatchRatio,
+    diffImage: comparison.diffImage,
+    global: comparison,
+    segments: segmentComparisons.map((item) => ({
+      target: "segment",
+      segment: item.segment,
+      threshold: item.threshold,
+      source: item.source,
+      mismatchRatio: item.comparison.mismatchRatio,
+      diffImage: item.comparison.diffImage,
+      hotspots: item.comparison.hotspots,
+      hotspotSummary: item.comparison.hotspotSummary,
+      actualPath: item.actualPath,
+      designPath: item.designPath,
+    })),
+    hotspots: comparison.hotspots,
+    warnings,
+    counts: {
+      comparedSegments: segmentComparisons.length,
+      skippedSegments: Math.max((captureMetadata.segments ?? []).length - segmentComparisons.length, 0),
+      totalHotspots: comparison.hotspots.length,
+      findingCandidates: 0,
+    },
+    compareConfig,
+  };
 
   return {
     designSource,
@@ -228,8 +514,9 @@ async function maybeCompareDesign({
         normalized,
         comparison,
       },
+      ...segmentComparisons,
     ],
-    summary: comparison,
+    summary,
     warnings,
   };
 }
@@ -291,6 +578,7 @@ async function runPipeline({
     compareSummary: compareResult.summary,
     captureMetadata,
     designSource,
+    compareWarnings: compareResult.warnings,
   });
   const findingsPayload = {
     ok: true,
@@ -305,11 +593,17 @@ async function runPipeline({
   writeJson(classificationPath, classification);
 
   const results = buildRuntimeResults(scenario, captureMetadata, compareResult.summary);
+  compareResult.summary.counts.findingCandidates = findings.length;
+
   const evidence = [
     `原生截图: ${captureMetadata.baseScreenshot}`,
     ...(captureMetadata.segmentScreenshots ?? []).map((item) => `区域截图 ${item.segment}: ${item.path}`),
     ...(compareResult.designSource ? [`设计基线(${compareResult.designSource.kind}): ${compareResult.designSource.path}`] : []),
     ...(compareResult.summary ? [`差异热图: ${compareResult.summary.diffImage}`] : []),
+    ...((compareResult.summary?.segments ?? []).slice(0, 3).map((item) => `分段差异 ${item.segment}: ${item.diffImage}`)),
+    ...((compareResult.summary?.hotspots ?? []).slice(0, 3).flatMap((item) =>
+      [item.actualCrop, item.designCrop, item.diffCrop].filter(Boolean).map((filePath) => `热点证据 ${item.id}: ${filePath}`),
+    )),
     ...compareResult.warnings,
   ];
 
@@ -323,6 +617,7 @@ async function runPipeline({
       evidence,
       results: results.initial,
       findings: findings.map((item) => item.title),
+      repairCandidates: classification.autoFixable.map((item) => item.title),
       autoFixable: classification.autoFixable.map((item) => item.title),
       manualReview: classification.manualReview.map((item) => item.title),
     };
@@ -333,12 +628,16 @@ async function runPipeline({
       subject: buildSubject(scenario),
       evidence,
       repairedIssues,
+      verifiedRepaired: [],
+      pendingAutoFix: classification.autoFixable.map((item) => item.title),
+      manualReview: classification.manualReview.map((item) => item.title),
+      unverifiedRepairClaims: repairedIssues,
       recheckResults: results.final,
       residualRisks,
       conclusion: [
-        residualRisks.length === 0
+        residualRisks.length === 0 && repairedIssues.length === 0 && classification.autoFixable.length === 0
           ? "自动复验完成，当前未发现需要人工确认的剩余风险。"
-          : "自动复验完成，但仍存在需要人工确认的剩余风险。",
+          : "自动复验完成，但仍存在未验证修复声明、待外部修复项或需人工确认的剩余风险。",
       ],
     };
   }
@@ -358,54 +657,57 @@ async function runPipeline({
     reportJsonPath,
     reportMdPath,
     compareSummary: compareResult.summary,
+    comparisons: compareResult.comparisons,
   };
 
   writeJson(path.join(phaseDir, "pipeline-summary.json"), summary);
   return summary;
 }
 
-const argv = process.argv.slice(2);
-if (hasFlag(argv, "help")) {
-  printHelp(HELP);
-  process.exit(0);
-}
-
-const args = parseArgs(argv);
-const mode = args.mode ?? "initial";
-const projectRoot = resolvePath(process.cwd(), args["project-root"]);
-const scenarioPath = resolvePath(process.cwd(), args.scenario);
-
-if (!projectRoot || !scenarioPath) {
-  exitWithError("Missing required --project-root or --scenario argument.");
-}
-
-const outputDir = resolvePath(
-  process.cwd(),
-  args["output-dir"] ?? buildScenarioOutputDir(projectRoot, scenarioPath, "pipeline"),
-);
-
-try {
-  const summary = await runPipeline({
-    mode,
-    projectRoot,
-    scenarioPath,
-    outputDir,
-    designImage: resolvePath(process.cwd(), args["design-image"]),
-    baselineImage: resolvePath(process.cwd(), args["baseline-image"]),
-    repairedIssuesPath: resolvePath(process.cwd(), args["repaired-issues"]),
-    port: args.port ?? getDefaultAutomationPort(),
-    preferConnect: args.port !== undefined,
-    trustProject: hasFlag(argv, "trust-project"),
-  });
-
-  logJson(summary);
-} catch (error) {
-  if (isStructuredFailure(error)) {
-    exitWithError(error.error ?? "run-qa-pipeline failed.", error);
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+  const argv = process.argv.slice(2);
+  if (hasFlag(argv, "help")) {
+    printHelp(HELP);
+    process.exit(0);
   }
 
-  exitWithError("run-qa-pipeline failed unexpectedly.", {
-    phase: "pipeline",
-    cause: errorCause(error),
-  });
+  const args = parseArgs(argv);
+  const mode = args.mode ?? "initial";
+  const projectRoot = resolvePath(process.cwd(), args["project-root"]);
+  const scenarioPath = resolvePath(process.cwd(), args.scenario);
+
+  if (!projectRoot || !scenarioPath) {
+    exitWithError("Missing required --project-root or --scenario argument.");
+  }
+
+  const outputDir = resolvePath(
+    process.cwd(),
+    args["output-dir"] ?? buildScenarioOutputDir(projectRoot, scenarioPath, "pipeline"),
+  );
+
+  try {
+    const summary = await runPipeline({
+      mode,
+      projectRoot,
+      scenarioPath,
+      outputDir,
+      designImage: resolvePath(process.cwd(), args["design-image"]),
+      baselineImage: resolvePath(process.cwd(), args["baseline-image"]),
+      repairedIssuesPath: resolvePath(process.cwd(), args["repaired-issues"]),
+      port: args.port ?? getDefaultAutomationPort(),
+      preferConnect: args.port !== undefined,
+      trustProject: hasFlag(argv, "trust-project"),
+    });
+
+    logJson(summary);
+  } catch (error) {
+    if (isStructuredFailure(error)) {
+      exitWithError(error.error ?? "run-qa-pipeline failed.", error);
+    }
+
+    exitWithError("run-qa-pipeline failed unexpectedly.", {
+      phase: "pipeline",
+      cause: errorCause(error),
+    });
+  }
 }

@@ -13,6 +13,7 @@ Machine-readable validation is available in [templates/qa-scenario.schema.json](
 - `viewport`: Runtime viewport configuration. Required by schema.
 - `readySignal`: Explicit signal that the page is stable enough to capture. Required by schema.
 - `capture`: Capture configuration. Required by schema.
+- `compare`: Compare configuration. Optional in schema. Defaults are applied by the built-in pipeline.
 - `design`: Design-reference metadata. Optional in schema; the built-in compare step only consumes local `designImagePath` or `baselineImagePath`.
 - `ignoreRegions`: Optional masking selectors. The built-in compare step applies them when capture metadata can resolve selector geometry.
 - `notes`: Human-readable warnings or setup notes. Optional in schema.
@@ -61,6 +62,22 @@ Machine-readable validation is available in [templates/qa-scenario.schema.json](
     "helperCommand": "node scripts/project-capture.js",
     "manualFiles": []
   },
+  "compare": {
+    "threshold": 0.1,
+    "includeAA": false,
+    "minHotspotArea": 400,
+    "minHotspotPixels": 100,
+    "maxHotspots": 12,
+    "hotspotMergeDistance": 8,
+    "exportHotspotCrops": true,
+    "segmentThreshold": 0.03,
+    "perSegmentThresholds": {
+      "header": 0.02
+    },
+    "segmentDesignImages": {
+      "header": "design/header.png"
+    }
+  },
   "design": {
     "figmaFileKey": "abc123",
     "figmaNodeId": "123:456",
@@ -96,7 +113,7 @@ Prefer explicit app-level markers instead of arbitrary waits.
 Required fields:
 
 - `mode`: `viewport` or `fullPage`
-- `segments`: list of stable named sections for long pages
+- `segments`: optional list of stable named sections for long pages. Defaults to `[]`.
 
 Optional helper fields used by the provided scripts:
 
@@ -132,6 +149,29 @@ The following fields are metadata only:
 
 - built-in DevTools capture can resolve selector geometry and pass the resulting rectangles into compare
 - manual or adapter fallback may not provide enough geometry, in which case the pipeline emits a warning instead of silently masking
+
+### `compare`
+
+Optional compare fields used by the built-in pipeline:
+
+- `threshold`: default `0.1`
+- `includeAA`: default `false`
+- `minHotspotArea`: default `400`
+- `minHotspotPixels`: default `100`
+- `maxHotspots`: default `12`
+- `hotspotMergeDistance`: default `8`
+- `exportHotspotCrops`: default `true`
+- `segmentThreshold`: default `0.03`
+- `perSegmentThresholds`: optional per-segment override map
+- `segmentDesignImages`: optional per-segment design reference map
+
+Built-in compare layers:
+
+- global compare: whole-image diff
+- segment compare: uses explicit segment design images first, then normalized global-image crop fallback when geometry is available
+- hotspot compare: pixel-diff hotspot clustering from the global compare output
+
+Hotspot compare is geometry-based diff clustering. It is not semantic UI understanding.
 
 ## Stability guidance
 

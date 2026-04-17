@@ -36,6 +36,7 @@ Notes:
 - `segmentScreenshots` is populated only when segment capture is available.
 - `ignoreRegions` contains resolved rectangle geometry only when the active capture path can map scenario selectors to image coordinates.
 - manual or adapter fallback may return fewer executor details than built-in DevTools capture.
+- segment screenshot entries may also include `bbox` and `bboxSource` when the active capture path can preserve reusable geometry.
 
 ## `findings.json`
 
@@ -90,6 +91,7 @@ Initial report JSON typically contains:
 - `evidence`
 - `results`
 - `findings`
+- `repairCandidates`
 - `autoFixable`
 - `manualReview`
 
@@ -98,6 +100,10 @@ Final report JSON typically contains:
 - `subject`
 - `evidence`
 - `repairedIssues`
+- `verifiedRepaired`
+- `pendingAutoFix`
+- `manualReview`
+- `unverifiedRepairClaims`
 - `recheckResults`
 - `residualRisks`
 - `conclusion`
@@ -124,3 +130,86 @@ Core fields:
 - `reportJsonPath`
 - `reportMdPath`
 - `compareSummary`
+
+## `compareSummary`
+
+Returned by:
+
+- `scripts/run-qa-pipeline.mjs`
+
+Backward-compatible top-level fields:
+
+- `mismatchRatio`
+- `diffImage`
+
+Structured fields:
+
+- `global`
+- `segments`
+- `hotspots`
+- `warnings`
+- `counts`
+- `compareConfig`
+
+### `global`
+
+Core fields:
+
+- `mismatchRatio`
+- `diffImage`
+- `mismatchedPixels`
+- `hotspots`
+- `hotspotSummary`
+
+### `segments`
+
+Each segment entry may include:
+
+- `target: "segment"`
+- `segment`
+- `threshold`
+- `source`
+- `mismatchRatio`
+- `diffImage`
+- `hotspots`
+- `hotspotSummary`
+- `actualPath`
+- `designPath`
+
+### `hotspots`
+
+Each hotspot entry may include:
+
+- `id`
+- `left`
+- `top`
+- `width`
+- `height`
+- `area`
+- `mismatchedPixels`
+- `bboxMismatchRatio`
+- `coverageRatio`
+- `severityScore`
+- `actualCrop`
+- `designCrop`
+- `diffCrop`
+
+### `counts`
+
+Current fields:
+
+- `comparedSegments`
+- `skippedSegments`
+- `totalHotspots`
+- `findingCandidates`
+
+## `findings.json`
+
+Extended fields that may appear on each finding:
+
+- `source`
+- `segment`
+- `hotspotId`
+- `bbox`
+- `evidencePaths`
+- `metrics`
