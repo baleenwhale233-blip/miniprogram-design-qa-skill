@@ -168,7 +168,7 @@
     },
     "ignoreRegions": {
       "type": "array",
-      "description": "Reserved masking metadata. The built-in compare pipeline does not currently apply these masks automatically.",
+      "description": "Optional masking selector list. The built-in compare pipeline applies masks when capture metadata can resolve selector geometry; fallback/manual paths may emit warnings or provide reduced masking behavior.",
       "items": {
         "type": "string"
       }

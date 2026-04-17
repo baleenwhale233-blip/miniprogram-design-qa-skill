@@ -51,6 +51,6 @@
   ],
   "notes": [
     "Replace helperCommand with a project-local native screenshot adapter if built-in DevTools capture is not sufficient.",
-    "ignoreRegions is currently reserved metadata and is not yet applied automatically by the built-in compare step."
+    "ignoreRegions masks are applied only when the active capture path can resolve selector geometry."
   ]
 }

@@ -14,10 +14,62 @@ import {
 
 const HELP = `
 Usage:
-  node scripts/compare-images.mjs --actual <file> --design <file> --output <diff.png> [--threshold 0.1]
+  node scripts/compare-images.mjs --actual <file> --design <file> --output <diff.png> [--threshold 0.1] [--ignore-rects-file <json>] [--ignore-rects-json '<json>']
 
 Create a diff image and mismatch summary for two equally sized PNG files.
 `;
+
+function validateIgnoreRects(value) {
+  if (!Array.isArray(value)) {
+    exitWithError("ignoreRects must be an array of rectangle objects.");
+  }
+
+  return value.map((rect, index) => {
+    if (!rect || typeof rect !== "object") {
+      exitWithError("Each ignore rect must be an object.", { index });
+    }
+
+    const normalized = {
+      left: Number(rect.left),
+      top: Number(rect.top),
+      width: Number(rect.width),
+      height: Number(rect.height),
+    };
+
+    if (
+      !Number.isFinite(normalized.left) ||
+      !Number.isFinite(normalized.top) ||
+      !Number.isFinite(normalized.width) ||
+      !Number.isFinite(normalized.height)
+    ) {
+      exitWithError("Each ignore rect must have numeric left, top, width, and height.", {
+        index,
+        rect,
+      });
+    }
+
+    return normalized;
+  });
+}
+
+function readIgnoreRectsFromArgs(args) {
+  if (args["ignore-rects-file"] && args["ignore-rects-json"]) {
+    exitWithError("Pass either --ignore-rects-file or --ignore-rects-json, not both.");
+  }
+
+  if (args["ignore-rects-file"]) {
+    const filePath = resolvePath(process.cwd(), args["ignore-rects-file"]);
+    const payload = JSON.parse(fs.readFileSync(filePath, "utf8"));
+    return validateIgnoreRects(payload);
+  }
+
+  if (args["ignore-rects-json"]) {
+    const payload = JSON.parse(args["ignore-rects-json"]);
+    return validateIgnoreRects(payload);
+  }
+
+  return [];
+}
 
 function applyIgnoreRects(actualPng, designPng, ignoreRects = []) {
   for (const rect of ignoreRects) {
@@ -110,6 +162,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
   const actualPath = resolvePath(process.cwd(), args.actual);
   const designPath = resolvePath(process.cwd(), args.design);
   const diffPath = resolvePath(process.cwd(), args.output);
+  const ignoreRects = readIgnoreRectsFromArgs(args);
 
   const result = await compareImages({
     actualPath,
@@ -117,6 +170,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     diffPath,
     threshold: Number(args.threshold ?? 0.1),
     includeAA: Boolean(args["include-aa"]),
+    ignoreRects,
   });
 
   logJson(result);

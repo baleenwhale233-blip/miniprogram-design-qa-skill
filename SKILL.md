@@ -22,7 +22,7 @@ Use this skill when the user asks for any of the following:
 
 - mini-program acceptance
 - native WeChat UI QA
-- design comparison against screenshots or Figma
+- design comparison against local screenshots/baselines or scenarios linked to Figma metadata
 - screenshot diff or regression check for a mini-program page
 - 原生小程序页面验收
 - 前端验收 with a mini-program runtime
