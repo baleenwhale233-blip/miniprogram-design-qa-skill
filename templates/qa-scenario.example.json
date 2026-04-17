@@ -50,6 +50,7 @@
     ".avatar-image"
   ],
   "notes": [
-    "Replace helperCommand with a project-local native screenshot adapter."
+    "Replace helperCommand with a project-local native screenshot adapter if built-in DevTools capture is not sufficient.",
+    "ignoreRegions is currently reserved metadata and is not yet applied automatically by the built-in compare step."
   ]
 }

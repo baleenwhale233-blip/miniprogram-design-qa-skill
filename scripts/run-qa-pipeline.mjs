@@ -3,9 +3,11 @@
 import fs from "node:fs";
 import path from "node:path";
 import {
+  buildScenarioOutputDir,
   ensureDir,
   exitWithError,
   hasFlag,
+  getDefaultAutomationPort,
   logJson,
   parseArgs,
   printHelp,
@@ -18,7 +20,7 @@ import { normalizeImages } from "./normalize-images.mjs";
 import { compareImages } from "./compare-images.mjs";
 import { classifyFindings } from "./classify-findings.mjs";
 import { buildReport } from "./build-report.mjs";
-import { captureWithDevtools } from "./capture-devtools.mjs";
+import { captureMiniProgram } from "./capture-miniprogram.mjs";
 
 const HELP = `
 Usage:
@@ -29,7 +31,7 @@ Run the native capture -> compare -> classify -> report pipeline.
 Notes:
   - initial mode produces capture metadata, comparison artifacts, findings, classification, and 初验报告.
   - final mode re-captures the page, reruns comparison, and produces 复验报告.
-  - automatic code repair is still handled by an agent or engineer between the two phases.
+  - source-code repair is handled by an external agent or engineer between the two phases.
 `;
 
 function isStructuredFailure(error) {
@@ -62,6 +64,28 @@ function resolveDesignSource(projectRoot, scenario, overrides = {}) {
   }
 
   return null;
+}
+
+function mapIgnoreRegionsToNormalized(captureMetadata, normalized) {
+  const ignoreRegions = captureMetadata.ignoreRegions ?? [];
+  if (!ignoreRegions.length) {
+    return [];
+  }
+
+  const transform = normalized.actualTransform ?? {
+    scaleX: 1,
+    scaleY: 1,
+    left: 0,
+    top: 0,
+  };
+
+  return ignoreRegions.map((region) => ({
+    selector: region.selector,
+    left: Math.max(Math.round((region.left ?? 0) * transform.scaleX + transform.left), 0),
+    top: Math.max(Math.round((region.top ?? 0) * transform.scaleY + transform.top), 0),
+    width: Math.max(Math.round((region.width ?? 0) * transform.scaleX), 1),
+    height: Math.max(Math.round((region.height ?? 0) * transform.scaleY), 1),
+  }));
 }
 
 function buildSubject(scenario) {
@@ -160,6 +184,7 @@ async function maybeCompareDesign({
   outputDir,
   captureMetadata,
   designSource,
+  scenario,
 }) {
   if (!designSource) {
     return {
@@ -185,7 +210,13 @@ async function maybeCompareDesign({
     actualPath: normalized.actualOutput,
     designPath: normalized.designOutput,
     diffPath: path.join(compareDir, "diff.png"),
+    ignoreRects: mapIgnoreRegionsToNormalized(captureMetadata, normalized),
   });
+
+  const warnings = [];
+  if ((scenario.ignoreRegions ?? []).length > 0 && !(captureMetadata.ignoreRegions ?? []).length) {
+    warnings.push("ignoreRegions was provided, but no mask geometry could be resolved for the built-in compare step.");
+  }
 
   return {
     designSource,
@@ -199,7 +230,7 @@ async function maybeCompareDesign({
       },
     ],
     summary: comparison,
-    warnings: [],
+    warnings,
   };
 }
 
@@ -235,10 +266,11 @@ async function runPipeline({
   const phaseDir = path.join(outputDir, mode);
   ensureDir(phaseDir);
 
-  const captureMetadata = await captureWithDevtools({
+  const captureMetadata = await captureMiniProgram({
     projectRoot,
     scenarioPath,
     outputDir: path.join(phaseDir, "capture"),
+    cliPath: undefined,
     port,
     preferConnect,
     trustProject,
@@ -252,6 +284,7 @@ async function runPipeline({
     outputDir: phaseDir,
     captureMetadata,
     designSource,
+    scenario,
   });
 
   const findings = createFindings({
@@ -274,7 +307,7 @@ async function runPipeline({
   const results = buildRuntimeResults(scenario, captureMetadata, compareResult.summary);
   const evidence = [
     `原生截图: ${captureMetadata.baseScreenshot}`,
-    ...captureMetadata.segmentScreenshots.map((item) => `区域截图 ${item.segment}: ${item.path}`),
+    ...(captureMetadata.segmentScreenshots ?? []).map((item) => `区域截图 ${item.segment}: ${item.path}`),
     ...(compareResult.designSource ? [`设计基线(${compareResult.designSource.kind}): ${compareResult.designSource.path}`] : []),
     ...(compareResult.summary ? [`差异热图: ${compareResult.summary.diffImage}`] : []),
     ...compareResult.warnings,
@@ -348,7 +381,7 @@ if (!projectRoot || !scenarioPath) {
 
 const outputDir = resolvePath(
   process.cwd(),
-  args["output-dir"] ?? path.join(projectRoot, ".qa-output", path.basename(scenarioPath, path.extname(scenarioPath)), "pipeline"),
+  args["output-dir"] ?? buildScenarioOutputDir(projectRoot, scenarioPath, "pipeline"),
 );
 
 try {
@@ -360,7 +393,7 @@ try {
     designImage: resolvePath(process.cwd(), args["design-image"]),
     baselineImage: resolvePath(process.cwd(), args["baseline-image"]),
     repairedIssuesPath: resolvePath(process.cwd(), args["repaired-issues"]),
-    port: args.port ?? "9421",
+    port: args.port ?? getDefaultAutomationPort(),
     preferConnect: args.port !== undefined,
     trustProject: hasFlag(argv, "trust-project"),
   });

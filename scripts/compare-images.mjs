@@ -19,12 +19,38 @@ Usage:
 Create a diff image and mismatch summary for two equally sized PNG files.
 `;
 
+function applyIgnoreRects(actualPng, designPng, ignoreRects = []) {
+  for (const rect of ignoreRects) {
+    const left = Math.max(Math.round(rect.left ?? 0), 0);
+    const top = Math.max(Math.round(rect.top ?? 0), 0);
+    const width = Math.max(Math.round(rect.width ?? 0), 0);
+    const height = Math.max(Math.round(rect.height ?? 0), 0);
+    const maxX = Math.min(left + width, actualPng.width);
+    const maxY = Math.min(top + height, actualPng.height);
+
+    for (let y = top; y < maxY; y += 1) {
+      for (let x = left; x < maxX; x += 1) {
+        const index = (y * actualPng.width + x) * 4;
+        actualPng.data[index] = 0;
+        actualPng.data[index + 1] = 0;
+        actualPng.data[index + 2] = 0;
+        actualPng.data[index + 3] = 0;
+        designPng.data[index] = 0;
+        designPng.data[index + 1] = 0;
+        designPng.data[index + 2] = 0;
+        designPng.data[index + 3] = 0;
+      }
+    }
+  }
+}
+
 export async function compareImages({
   actualPath,
   designPath,
   diffPath,
   threshold = 0.1,
   includeAA = false,
+  ignoreRects = [],
 }) {
   if (!actualPath || !designPath || !diffPath) {
     exitWithError("Missing required actualPath, designPath, or diffPath.");
@@ -42,6 +68,8 @@ export async function compareImages({
       designSize: { width: designPng.width, height: designPng.height },
     });
   }
+
+  applyIgnoreRects(actualPng, designPng, ignoreRects);
 
   const diffPng = new PNG({ width: actualPng.width, height: actualPng.height });
   const mismatchedPixels = pixelmatch(
@@ -66,6 +94,7 @@ export async function compareImages({
     threshold,
     mismatchedPixels,
     mismatchRatio: mismatchedPixels / (actualPng.width * actualPng.height),
+    ignoredRects: ignoreRects.length,
     diffImage: diffPath,
   };
 }

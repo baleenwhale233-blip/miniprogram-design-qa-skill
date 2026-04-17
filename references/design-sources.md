@@ -1,26 +1,32 @@
 # Design Sources
 
-`miniprogram-design-qa` supports three design reference inputs.
+`miniprogram-design-qa` supports local design reference inputs plus optional Figma metadata.
 
 ## Priority order
 
-1. Figma node
-2. Static design screenshot
-3. Baseline screenshot from a prior accepted build
+1. Static design screenshot
+2. Baseline screenshot from a prior accepted build
+3. Figma node metadata
 4. No design reference, runtime-only acceptance
 
-## Figma node
+## Figma node metadata
 
 Use when the user provides:
 
 - a Figma URL
 - a file key and node id
-- an existing design context pipeline that can export node screenshots
+- an existing external workflow that can export node screenshots
 
 Best for:
 
-- feature work tied to a living design source
-- design-to-code checks
+- preserving design linkage inside the scenario
+- delegating export to an external Figma-aware workflow
+
+Important:
+
+- the built-in compare pipeline does **not** export screenshots from Figma
+- `figmaFileKey` and `figmaNodeId` are treated as metadata only
+- to run built-in image comparison, provide a local `designImagePath` or `baselineImagePath`
 
 ## Static design screenshot
 

@@ -56,7 +56,7 @@ export function buildFinalReport(input) {
     formatList(input.evidence ?? []),
     "",
     "主动修掉的问题：",
-    formatList(input.repairedIssues ?? [], "- No auto-fix phase was needed"),
+    formatList(input.repairedIssues ?? [], "- No repair phase was recorded"),
     "",
     "复验结果：",
     formatList(input.recheckResults ?? []),

@@ -9,10 +9,7 @@
     "route",
     "viewport",
     "readySignal",
-    "capture",
-    "design",
-    "ignoreRegions",
-    "notes"
+    "capture"
   ],
   "properties": {
     "id": {
@@ -73,7 +70,8 @@
           "enum": [
             "selector",
             "text",
-            "network-idle"
+            "network-idle",
+            "data-stable"
           ]
         },
         "value": {
@@ -151,27 +149,33 @@
       "additionalProperties": false,
       "properties": {
         "figmaFileKey": {
-          "type": "string"
+          "type": "string",
+          "description": "Metadata only. The built-in pipeline does not export screenshots from Figma."
         },
         "figmaNodeId": {
-          "type": "string"
+          "type": "string",
+          "description": "Metadata only. The built-in pipeline does not export screenshots from Figma."
         },
         "designImagePath": {
-          "type": "string"
+          "type": "string",
+          "description": "Local design image path consumed by the built-in compare pipeline."
         },
         "baselineImagePath": {
-          "type": "string"
+          "type": "string",
+          "description": "Local baseline image path consumed by the built-in compare pipeline."
         }
       }
     },
     "ignoreRegions": {
       "type": "array",
+      "description": "Reserved masking metadata. The built-in compare pipeline does not currently apply these masks automatically.",
       "items": {
         "type": "string"
       }
     },
     "notes": {
       "type": "array",
+      "description": "Human-readable scenario notes for agents and engineers.",
       "items": {
         "type": "string"
       }

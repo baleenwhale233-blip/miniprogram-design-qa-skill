@@ -14,7 +14,7 @@ The core design goal is simple:
 - collect **native runtime evidence**
 - compare it with an optional design reference
 - classify findings
-- optionally repair only high-confidence front-end issues
+- support a repair-loop workflow for high-confidence front-end issues
 - produce initial and final Chinese QA reports
 
 ## What Is General vs Codex-Specific
@@ -99,7 +99,7 @@ The consumer project should provide:
 - one or more scenario JSON files
 - stable routes and fixture/state setup
 - explicit ready markers
-- optional masking rules for dynamic regions
+- optional reserved masking metadata for dynamic regions
 - optional project-local prepare/capture hooks or adapters
 
 For tabbed screens, prefer entering the target tab through route/query state instead of relying on capture-time taps.
@@ -125,6 +125,9 @@ The recommended scenario contract is documented in:
 
 - [references/scenario-schema.md](./references/scenario-schema.md)
 - [templates/qa-scenario.schema.json](./templates/qa-scenario.schema.json)
+- [references/output-artifacts.md](./references/output-artifacts.md)
+
+Machine-readable outputs are intended for external agents and scripts to consume directly. Use the output-artifacts reference instead of inferring JSON shapes from source code.
 
 ## Evidence Policy
 
@@ -150,13 +153,28 @@ These are **overridable defaults**, not required environment bindings.
 - CLI arguments always take precedence over defaults
 - consumer projects should treat those defaults as examples, not as the only supported setup
 
+Environment-variable overrides:
+
+- `WECHAT_DEVTOOLS_CLI` or `MINIPROGRAM_QA_DEVTOOLS_CLI`
+- `MINIPROGRAM_QA_PORT`
+- `MINIPROGRAM_QA_OUTPUT_DIR`
+
+Example override for CI-like or non-default environments:
+
+```bash
+WECHAT_DEVTOOLS_CLI=/path/to/cli \
+MINIPROGRAM_QA_PORT=41001 \
+MINIPROGRAM_QA_OUTPUT_DIR=.qa-output-ci \
+npm run qa:capture -- --project-root /path/to/consumer-project --scenario /path/to/consumer-project/qa/example.json
+```
+
 ## Repair Loop Policy
 
 The default workflow includes:
 
 1. initial acceptance
 2. classification of findings
-3. automatic repair only for high-confidence front-end issues
+3. optional external repair of high-confidence front-end issues
 4. re-capture and re-check
 5. final acceptance report
 
@@ -168,20 +186,23 @@ First-class support in v1:
 
 - WeChat mini-programs
 - Taro projects targeting `weapp`
-- native screenshot comparison against Figma nodes, design screenshots, or baseline screenshots
+- native screenshot comparison against local design screenshots or local baseline screenshots
+- Figma node metadata in scenarios for external/export workflows
 
 Out of scope in v1:
 
 - H5-first QA workflows
 - generic multi-platform mini-program support
-- automatic repair for ambiguous product or design decisions
+- in-repo source-code repair for ambiguous product or design decisions
 
 ## Known Limitations
 
 - WeChat mini-program is the first-class runtime target in v1.
 - DevTools automation can still be flaky depending on local machine state, installed DevTools version, and automation-port availability.
 - `capture-devtools` is usable and now returns structured phase errors, but runtime stability still depends on WeChat DevTools automation behaving consistently.
-- `run-qa-pipeline` is available for `capture -> compare -> classify -> report`, but real repair and recheck workflows still depend on the agent or engineer between phases.
+- `run-qa-pipeline` is available for `capture -> compare -> classify -> report`, but source-code repair still depends on an external agent or engineer between phases.
+- `figmaFileKey` and `figmaNodeId` are metadata only; the built-in pipeline does not export screenshots from Figma.
+- `ignoreRegions` is applied by the built-in compare pipeline only when capture metadata can resolve selector geometry. Fallback/manual capture may not provide enough geometry, in which case the pipeline emits a warning instead of silently masking.
 
 ## Commands
 

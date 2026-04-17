@@ -4,10 +4,12 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   buildMiniProgramUrl,
+  buildScenarioOutputDir,
   ensureDir,
   exitWithError,
   fileExists,
   getDefaultDevtoolsCliCandidates,
+  getDefaultAutomationPort,
   hasFlag,
   logJson,
   parseArgs,
@@ -78,6 +80,7 @@ function getScenarioDefaults(scenario) {
     navigationMode: capture.navigationMode ?? "relaunch",
     useFullPage: parseBoolean(capture.fullPage, capture.mode === "fullPage"),
     segmentSelectors: capture.segmentSelectors ?? {},
+    ignoreRegions: scenario.ignoreRegions ?? [],
   };
 }
 
@@ -231,7 +234,7 @@ async function waitForReadySignal(page, defaults, routeContext) {
   const signalType = readySignal.type ?? "selector";
   const signalValue = readySignal.value;
 
-  if (!signalValue && signalType !== "network-idle") {
+  if (!signalValue && signalType !== "network-idle" && signalType !== "data-stable") {
     throw createFailure("wait-ready", "readySignal.value is required for selector/text waits.", {
       route: routeContext.route,
       readySignal,
@@ -266,7 +269,7 @@ async function waitForReadySignal(page, defaults, routeContext) {
         readySignal,
       });
     }
-  } else if (signalType === "network-idle") {
+  } else if (signalType === "network-idle" || signalType === "data-stable") {
     let lastSnapshot = "";
     let lastChangeAt = Date.now();
     const matched = await pollUntil(async () => {
@@ -285,7 +288,7 @@ async function waitForReadySignal(page, defaults, routeContext) {
     }, { timeoutMs, intervalMs: 350 });
 
     if (!matched) {
-      throw createFailure("wait-ready", "Timed out waiting for network-idle style data stability.", {
+      throw createFailure("wait-ready", "Timed out waiting for page-data stability.", {
         route: routeContext.route,
         readySignal,
       });
@@ -404,6 +407,55 @@ function resolveSegmentSelector(segment, selectors) {
   return null;
 }
 
+async function collectIgnoreRegions({
+  page,
+  defaults,
+  viewport,
+  baseCapture,
+  warnings,
+}) {
+  const ignoreRegions = defaults.ignoreRegions ?? [];
+  if (!ignoreRegions.length) {
+    return [];
+  }
+
+  const viewportWidth = Math.max(parseNumber(viewport.width, 0), 1);
+  const viewportHeight = Math.max(parseNumber(viewport.height, 0), 1);
+  const scaleX = parseNumber(baseCapture.width, viewportWidth) / viewportWidth;
+  const scaleY = parseNumber(baseCapture.height, viewportHeight) / viewportHeight;
+  const currentScrollTop = defaults.useFullPage ? 0 : parseNumber(await page.scrollTop(), 0);
+  const regions = [];
+
+  for (const item of ignoreRegions) {
+    const selector = resolveSegmentSelector(item, defaults.segmentSelectors) ?? item;
+    const element = await page.$(selector);
+
+    if (!element) {
+      warnings.push(`ignoreRegions selector "${selector}" was not found.`);
+      continue;
+    }
+
+    const offset = await element.offset();
+    const size = await element.size();
+    const left = parseNumber(offset.left ?? offset.x, 0);
+    const top = parseNumber(offset.top ?? offset.y, 0);
+    const width = Math.max(parseNumber(size.width, 0), 1);
+    const height = Math.max(parseNumber(size.height, 0), 1);
+    const normalizedTop = defaults.useFullPage ? top : Math.max(top - currentScrollTop, 0);
+
+    regions.push({
+      selector,
+      left: Math.max(Math.round(left * scaleX), 0),
+      top: Math.max(Math.round(normalizedTop * scaleY), 0),
+      width: Math.max(Math.round(width * scaleX), 1),
+      height: Math.max(Math.round(height * scaleY), 1),
+      source: "actual-image",
+    });
+  }
+
+  return regions;
+}
+
 async function cropSegments({
   page,
   miniProgram,
@@ -503,7 +555,7 @@ export async function captureWithDevtools({
   scenarioPath,
   outputDir,
   cliPath,
-  port = "9421",
+  port = getDefaultAutomationPort(),
   trustProject = false,
   preferConnect = false,
 }) {
@@ -637,6 +689,13 @@ export async function captureWithDevtools({
       viewport: defaults.viewport,
       warnings,
     });
+    const ignoreRegions = await collectIgnoreRegions({
+      page,
+      defaults,
+      viewport: defaults.viewport,
+      baseCapture,
+      warnings,
+    });
 
     const metadata = {
       ok: true,
@@ -669,6 +728,7 @@ export async function captureWithDevtools({
       frameScreenshots: baseCapture.framePaths,
       segmentScreenshots: segmentShots,
       segments: scenario.capture?.segments ?? [],
+      ignoreRegions,
       warnings,
     };
 
@@ -710,7 +770,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
 
   const outputDir = resolvePath(
     process.cwd(),
-    args["output-dir"] ?? path.join(projectRoot, ".qa-output", path.basename(scenarioPath, path.extname(scenarioPath))),
+    args["output-dir"] ?? buildScenarioOutputDir(projectRoot, scenarioPath),
   );
 
   captureWithDevtools({
@@ -718,7 +778,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.a
     scenarioPath,
     outputDir,
     cliPath: resolvePath(process.cwd(), args["cli-path"]),
-    port: args.port ?? "9421",
+    port: args.port ?? getDefaultAutomationPort(),
     trustProject: parseBoolean(args["trust-project"], false),
     preferConnect: args.port !== undefined,
   })

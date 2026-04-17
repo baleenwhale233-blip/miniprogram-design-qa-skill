@@ -4,18 +4,18 @@
 
 Machine-readable validation is available in [templates/qa-scenario.schema.json](../templates/qa-scenario.schema.json).
 
-## Required top-level fields
+## Common top-level fields
 
-- `id`: Stable scenario identifier
-- `route`: WeChat mini-program route, for example `pages/rescue/detail/index`
-- `query`: Route params object. Prefer using this to enter target tabs, filters, or page sub-states when the page supports route-driven state.
-- `fixture`: Logical fixture or state name used by the consumer project
-- `viewport`: Runtime viewport configuration
-- `readySignal`: Explicit signal that the page is stable enough to capture
-- `capture`: Capture configuration
-- `design`: Design-reference configuration
-- `ignoreRegions`: Dynamic areas to mask or ignore
-- `notes`: Human-readable warnings or setup notes
+- `id`: Stable scenario identifier. Required by schema.
+- `route`: WeChat mini-program route, for example `pages/rescue/detail/index`. Required by schema.
+- `query`: Route params object. Optional. Prefer using this to enter target tabs, filters, or page sub-states when the page supports route-driven state.
+- `fixture`: Logical fixture or state name used by the consumer project. Optional.
+- `viewport`: Runtime viewport configuration. Required by schema.
+- `readySignal`: Explicit signal that the page is stable enough to capture. Required by schema.
+- `capture`: Capture configuration. Required by schema.
+- `design`: Design-reference metadata. Optional in schema; the built-in compare step only consumes local `designImagePath` or `baselineImagePath`.
+- `ignoreRegions`: Optional masking selectors. The built-in compare step applies them when capture metadata can resolve selector geometry.
+- `notes`: Human-readable warnings or setup notes. Optional in schema.
 
 ## Suggested JSON shape
 
@@ -85,9 +85,11 @@ Supported v1 signal types:
 
 - `selector`
 - `text`
-- `network-idle`
+- `data-stable`
+- `network-idle` as a backward-compatible alias for `data-stable`
 
 Prefer explicit app-level markers instead of arbitrary waits.
+`data-stable` means page-data stability polling, not browser-level network idle.
 
 ### `capture`
 
@@ -114,11 +116,22 @@ Supported optional timing fields:
 
 ### `design`
 
-At least one of the following should be present when a design comparison is required:
+Built-in image comparison consumes one of the following local file inputs:
 
-- `figmaFileKey` + `figmaNodeId`
 - `designImagePath`
 - `baselineImagePath`
+
+The following fields are metadata only:
+
+- `figmaFileKey`
+- `figmaNodeId`
+
+### `ignoreRegions`
+
+`ignoreRegions` is an optional list of selectors to ignore during built-in image comparison.
+
+- built-in DevTools capture can resolve selector geometry and pass the resulting rectangles into compare
+- manual or adapter fallback may not provide enough geometry, in which case the pipeline emits a warning instead of silently masking
 
 ## Stability guidance
 

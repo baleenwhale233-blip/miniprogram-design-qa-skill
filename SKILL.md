@@ -1,6 +1,6 @@
 ---
 name: miniprogram-design-qa
-description: Run native visual and interaction acceptance for WeChat mini-program pages by collecting runtime screenshots, comparing them with design references, and producing structured acceptance reports with an optional high-confidence repair loop. Trigger when the user asks for mini-program acceptance, visual QA, screenshot diff, design comparison, WeChat mini-program review, or 原生小程序验收.
+description: Run native visual and interaction acceptance for WeChat mini-program pages by collecting runtime screenshots, comparing them with design references, and producing structured acceptance reports within a repair-loop workflow. Trigger when the user asks for mini-program acceptance, visual QA, screenshot diff, design comparison, WeChat mini-program review, or 原生小程序验收.
 ---
 
 # Miniprogram Design QA
@@ -12,8 +12,9 @@ This skill is native-runtime first:
 - Prefer WeChat DevTools automation or project-provided native screenshot adapters
 - Do not treat Playwright or H5 mirrors as the primary evidence path
 - Treat H5 only as optional supplemental evidence when the project already exposes it
-- Support Figma nodes, static design screenshots, or baseline screenshots as design references
-- Default to a closed loop: initial acceptance, high-confidence front-end repair, and re-acceptance
+- Support local design screenshots or baseline screenshots as built-in compare inputs
+- Allow Figma node metadata in scenarios for external/export workflows
+- Default to a closed loop: initial acceptance, externally applied high-confidence front-end repair, and re-acceptance
 
 ## When To Use
 
@@ -40,7 +41,7 @@ Do not use this as the primary skill for browser-only pages. Use a browser-focus
 6. When you want the full evidence chain in one command, prefer `scripts/run-qa-pipeline.mjs`.
 7. Build an initial `前端验收报告（初验）`.
 8. Classify findings with `scripts/classify-findings.mjs`.
-9. Only repair or propose repairs for high-confidence front-end issues covered by the repair policy.
+9. Classify high-confidence front-end repair candidates according to the repair policy. Any actual source-code repair is performed by an external agent or engineer.
 10. Re-run capture and comparison for impacted scenarios.
 11. Build a final `前端验收报告（复验）`.
 
@@ -58,6 +59,7 @@ Do not use this as the primary skill for browser-only pages. Use a browser-focus
 - For tabbed pages, prefer route/query-driven initial state instead of capture-time taps.
 - Only use capture-time tab switching when the task explicitly needs interaction validation.
 - Treat route/query-driven tab entry as the default for visual and state acceptance, not as a page-specific exception.
+- Use `ignoreRegions` when you want the built-in compare step to ignore selector-backed regions. If the active capture path cannot resolve selector geometry, report that limitation instead of assuming the mask was applied.
 
 ## Scenario Contract
 
@@ -78,9 +80,7 @@ Read [references/scenario-schema.md](references/scenario-schema.md) before creat
 
 ## Repair Policy
 
-Auto-fix is enabled by default after the initial report, but only for **high-confidence front-end issues**.
-
-Use [references/repair-policy.md](references/repair-policy.md) to decide whether a finding is eligible for automatic repair.
+Use [references/repair-policy.md](references/repair-policy.md) to decide whether a finding is eligible for an external repair step.
 
 ## Executor Policy
 
@@ -97,9 +97,9 @@ Platform defaults such as common DevTools CLI paths, default ports, and `.qa-out
 
 Supported design inputs:
 
-- Figma node reference
 - design screenshot
 - baseline screenshot
+- Figma node metadata
 - runtime-only acceptance when no design reference exists
 
 Read [references/design-sources.md](references/design-sources.md) for input precedence and fallback behavior.

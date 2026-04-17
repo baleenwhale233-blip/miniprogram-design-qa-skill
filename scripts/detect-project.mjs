@@ -52,10 +52,6 @@ function detectFramework(packageJson) {
     return "uni-app";
   }
 
-  if (allDeps["miniprogram-api-typings"] || allDeps.wechaty) {
-    return "wechat-native";
-  }
-
   return "unknown";
 }
 
@@ -83,7 +79,11 @@ const taroAppConfigPath = findFirstExisting([
 ]);
 
 const packageJson = packageJsonPath ? readJson(packageJsonPath) : undefined;
-const framework = packageJson ? detectFramework(packageJson) : "unknown";
+const framework = packageJson
+  ? detectFramework(packageJson)
+  : projectConfigPath || appJsonPath
+    ? "wechat-native"
+    : "unknown";
 const detected = Boolean(projectConfigPath || appJsonPath || taroAppConfigPath || framework !== "unknown");
 
 const devtoolsCliPath = findFirstExisting(getDefaultDevtoolsCliCandidates());

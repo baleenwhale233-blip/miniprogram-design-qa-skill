@@ -159,10 +159,28 @@ export function runShellCommand(command, options = {}) {
 }
 
 export function getDefaultDevtoolsCliCandidates() {
+  const envCandidate = process.env.WECHAT_DEVTOOLS_CLI || process.env.MINIPROGRAM_QA_DEVTOOLS_CLI;
+
   return [
+    ...(envCandidate ? [envCandidate] : []),
     "/Applications/wechatwebdevtools.app/Contents/MacOS/cli",
     "/Applications/微信开发者工具.app/Contents/MacOS/cli",
   ];
+}
+
+export function getDefaultAutomationPort() {
+  return process.env.MINIPROGRAM_QA_PORT || "9421";
+}
+
+export function buildScenarioOutputDir(projectRoot, scenarioPath, suffix) {
+  const envOutputRoot = process.env.MINIPROGRAM_QA_OUTPUT_DIR;
+  const outputRoot = envOutputRoot
+    ? resolvePath(process.cwd(), envOutputRoot)
+    : path.join(projectRoot, ".qa-output");
+  const scenarioName = path.basename(scenarioPath, path.extname(scenarioPath));
+  const scenarioDir = path.join(outputRoot, scenarioName);
+
+  return suffix ? path.join(scenarioDir, suffix) : scenarioDir;
 }
 
 export function buildMiniProgramUrl(route, query = {}) {

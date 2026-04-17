@@ -4,6 +4,7 @@ import { spawn, spawnSync } from "node:child_process";
 import {
   fileExists,
   getDefaultDevtoolsCliCandidates,
+  getDefaultAutomationPort,
   hasFlag,
   logJson,
   parseArgs,
@@ -86,7 +87,7 @@ if (!cliPath) {
   exitWithError("WeChat DevTools CLI was not found. Install WeChat DevTools or pass --cli-path.");
 }
 
-const port = args.port ?? "9421";
+const port = args.port ?? getDefaultAutomationPort();
 const mode = args.mode ?? "auto";
 const command = mode === "open" ? "open" : "auto";
 const portFlag = mode === "auto" ? "--auto-port" : "--port";

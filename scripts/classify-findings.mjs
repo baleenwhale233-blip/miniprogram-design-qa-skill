@@ -8,7 +8,7 @@ const HELP = `
 Usage:
   node scripts/classify-findings.mjs --findings <file> [--min-confidence 0.85]
 
-Classify findings into auto-fixable and manual-review groups using the repair policy.
+Classify findings into repair-candidate and manual-review groups using the repair policy.
 `;
 
 const AUTO_FIXABLE_CATEGORIES = new Set([

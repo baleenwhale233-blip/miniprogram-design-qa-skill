@@ -19,6 +19,45 @@ Usage:
 Normalize actual and reference images to a shared PNG canvas for comparison.
 `;
 
+function computeTransform({ sourceWidth, sourceHeight, targetWidth, targetHeight, fit }) {
+  if (!sourceWidth || !sourceHeight || !targetWidth || !targetHeight) {
+    return {
+      scaleX: 1,
+      scaleY: 1,
+      left: 0,
+      top: 0,
+      width: sourceWidth ?? 0,
+      height: sourceHeight ?? 0,
+    };
+  }
+
+  if (fit !== "contain") {
+    return {
+      scaleX: targetWidth / sourceWidth,
+      scaleY: targetHeight / sourceHeight,
+      left: 0,
+      top: 0,
+      width: targetWidth,
+      height: targetHeight,
+    };
+  }
+
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight);
+  const width = Math.round(sourceWidth * scale);
+  const height = Math.round(sourceHeight * scale);
+  const left = Math.floor((targetWidth - width) / 2);
+  const top = Math.floor((targetHeight - height) / 2);
+
+  return {
+    scaleX: scale,
+    scaleY: scale,
+    left,
+    top,
+    width,
+    height,
+  };
+}
+
 export async function normalizeImages({
   actualPath,
   designPath,
@@ -72,6 +111,24 @@ export async function normalizeImages({
     background,
     targetWidth,
     targetHeight,
+    actualOriginalWidth: actualMetadata.width ?? 0,
+    actualOriginalHeight: actualMetadata.height ?? 0,
+    designOriginalWidth: designMetadata.width ?? 0,
+    designOriginalHeight: designMetadata.height ?? 0,
+    actualTransform: computeTransform({
+      sourceWidth: actualMetadata.width ?? 0,
+      sourceHeight: actualMetadata.height ?? 0,
+      targetWidth,
+      targetHeight,
+      fit,
+    }),
+    designTransform: computeTransform({
+      sourceWidth: designMetadata.width ?? 0,
+      sourceHeight: designMetadata.height ?? 0,
+      targetWidth,
+      targetHeight,
+      fit,
+    }),
     actualOutput,
     designOutput,
   };

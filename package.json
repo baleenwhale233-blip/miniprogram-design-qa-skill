@@ -2,7 +2,7 @@
   "name": "miniprogram-design-qa",
   "version": "0.1.0",
   "private": true,
-  "description": "GitHub-publishable Codex skill for native WeChat mini-program design QA with a built-in repair loop.",
+  "description": "GitHub-shared Codex skill and automation toolkit for native WeChat mini-program design QA with a repair-loop workflow.",
   "type": "module",
   "scripts": {
     "qa:detect": "node scripts/detect-project.mjs",
